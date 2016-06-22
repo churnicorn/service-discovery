@@ -69,24 +69,24 @@ Vagrant.configure(2) do |config|
   #   sudo apt-get install -y apache2
   # SHELL
 
-  config.vm.define "zookeeper" do |zookeeper|
-    zookeeper.vm.hostname = "zookeeper"
-    zookeeper.vm.network 'private_network', ip: '192.168.11.101'
+  config.vm.define "zookeeper1" do |zookeeper1|
+    zookeeper1.vm.hostname = "zookeeper1"
+    zookeeper1.vm.network 'private_network', ip: '192.168.11.101'
   end
 
-  config.vm.define "zookeeper2" do |zookeeper|
-    zookeeper.vm.hostname = "zookeeper2"
-    zookeeper.vm.network 'private_network', ip: '192.168.11.111'
+  config.vm.define "zookeeper2" do |zookeeper2|
+    zookeeper2.vm.hostname = "zookeeper2"
+    zookeeper2.vm.network 'private_network', ip: '192.168.11.111'
   end
 
-  config.vm.define "zookeeper3" do |zookeeper|
-    zookeeper.vm.hostname = "zookeeper3"
-    zookeeper.vm.network 'private_network', ip: '192.168.11.112'
+  config.vm.define "zookeeper3" do |zookeeper3|
+    zookeeper3.vm.hostname = "zookeeper3"
+    zookeeper3.vm.network 'private_network', ip: '192.168.11.112'
   end
 
-  config.vm.define "service_a" do |service_a|
-    service_a.vm.hostname = "service-a"
-    service_a.vm.network 'private_network', ip: '192.168.11.102'
+  config.vm.define "service_a_node_1" do |service_a_node_1|
+    service_a_node_1.vm.hostname = "service-a-node-1"
+    service_a_node_1.vm.network 'private_network', ip: '192.168.11.102'
   end
 
   config.vm.define "service_a_node_2" do |service_a_node_2|
@@ -94,8 +94,8 @@ Vagrant.configure(2) do |config|
     service_a_node_2.vm.network 'private_network', ip: '192.168.11.104'
   end
 
-  config.vm.define "service_b" do |service_b|
-    service_b.vm.hostname = "service-b"
-    service_b.vm.network 'private_network', ip: '192.168.11.103'
+  config.vm.define "service_b_node_1" do |service_b_node_1|
+    service_b_node_1.vm.hostname = "service-b-node-1"
+    service_b_node_1.vm.network 'private_network', ip: '192.168.11.103'
   end
 end
