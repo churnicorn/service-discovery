@@ -107,10 +107,27 @@ sudo apt-get install haproxy
 # Step 3 - Let's Do a Simple Setup Run : 1 zookeper, 1 service
 
 ## Zookeeper
-Next, bring zookeeper up ONLY on the zookeeper1 machine. We will do this as well with the other machines later, but for now let's just work with one machine.
+Next, bring zookeeper up ONLY on the zookeeper1 machine. We will do this as well with the other machines later, but for now let's just work with one machine. After the installation, zookeeper should auto start, but in case
+you need to start it , do:
 ```
-sudo /usr/share/zookeeper/bin/zkServer.sh start
+sudo service zookeeper start
 ```
+
+By default, zookeeper starts in this single mode. See Step 5 for clustering.
+
+Check that it is running:
+```
+vagrant@zookeeper1:~$ sudo service zookeeper status
+zookeeper start/running, process 8355
+```
+And this let's you know it's a 'standalone' instead of in a 'cluster'. We use this later to check for leadership status in clusters:
+```
+vagrant@zookeeper1:~$ /usr/share/zookeeper/bin/zkServer.sh status
+JMX enabled by default
+Using config: /etc/zookeeper/conf/zoo.cfg
+Mode: standalone
+```
+
 
 Use the zookeeper cli to look inside of zookeeper:
 ```
@@ -130,48 +147,25 @@ WatchedEvent state:SyncConnected type:None path:null
 [zk: 127.0.0.1:2181(CONNECTED) 0]
 ```
 
-Note that you can now list everything in zookeeper using `ls`:
+Note that you can now list everything in zookeeper using `ls /`:
 ```
-[zk: 127.0.0.1:2181(CONNECTED) 0] ls
-ZooKeeper -server host:port cmd args
-    connect host:port
-    get path [watch]
-    ls path [watch]
-    set path data [version]
-    rmr path
-    delquota [-n|-b] path
-    quit
-    printwatches on|off
-    create [-s] [-e] path data acl
-    stat path [watch]
-    close
-    ls2 path [watch]
-    history
-    listquota path
-    setAcl path acl
-    getAcl path
-    sync path
-    redo cmdno
-    addauth scheme auth
-    delete path [version]
-    setquota -n|-b val path
-[zk: 127.0.0.1:2181(CONNECTED) 1]
+[zk: 127.0.0.1:2181(CONNECTED) 3] ls /
+[zookeeper]
 ```
 
-Nerve and Synapse are not a part of this list yet.
+Nerve is not registered here yet.
 
 ## Nerve, Synapse, HAProxy, and The Service
 That's a mouthful of a title. There's a lot going on here - Zookeeper
 doesn't actually do much at all - it is just a simple store of values.
 All of the magic happens on each of the machines hosting the services which
 also have Nerve and Synapse and HAProxy running on it.
-Each machine is responsible for:
+Each machine is responsible for various things and here's a summary of how it works:
 
-    * for registering itself with zookeeper - TODO - nerve or synapse?
-    * continually sending its own health status to zookeeper to
-        keep its registration in place - Nerve
-    * finding the registered service it is attempting to call - Synapse
-        * and utilizing HAProxy to load balance to the appropriate service
+    *  Nerve runs a health check on our service. Nerve updates zookeeper with the service information.
+    *  ZooKeeper takes its recently updated information from nerve and updates Synapse.
+    * Synapse gets all services available information from Zookeeper and updates HAProxy
+    *  Our service is running on a machine that also has Nerve and Synapse and HAProxy which work as documented above. Our service can make requests to other services via HAProxy, whose configuraiton is continually updated by Synapse. HAProxy takes care of laod balancing the request to the external hosts.
 
 
 Do the next few steps ONLY on service_a_node_1
@@ -198,9 +192,14 @@ In another terminal window, let's run Nerve. Again, copy the nerve conf contents
 from here to
 /etc/nerve.conf.json
 
-and run nerve:
+give the nerve log file permissions:
 ```
-nerve -c /etc/nerve.conf.json
+sudo touch /var/log/nerve
+sudo chown vagrant:vagrant /var/log/nerve
+```
+and run nerve in the background:
+```
+nerve -c /etc/nerve.conf.json > /var/log/nerve 2>&1 &
 ```
 This will again take up this terminal window with the output of nerve.
 It will tell you that it's up and running and then it will proceed to complain
@@ -214,6 +213,8 @@ So far, we have
     * service_a_node_1 running
         - Synapse
         - Node
+
+If you run 'ls /' back in Zookeeper's cli you will still only see Zookeeper. Registration happens only when a healthy service is up and running so let's get that going.
 
 The next step is to get HAProxy and a simple HTTP Service on service_a_node_1
 
@@ -290,6 +291,18 @@ We then see
         - ` discovered 1 backends for service simple_http_service `
         - After discovery, it configures HAProxy again
 
+##### Zookeeper
+Back in zookeeper1, if we look at cli and do 'ls /' again, we will now see Nerve registered again:
+```
+[zk: 127.0.0.1:2181(CONNECTED) 13] ls /
+[nerve, zookeeper]
+```
+
+Furthermore, if you iterate through the Nerve directory, you will find the service actually registered:
+```
+[zk: 127.0.0.1:2181(CONNECTED) 15] ls /nerve/services/simple_http_service/services
+[service_a_node_1_0000000000]
+```
 
 # Step 4 - Debugging - TODO - move to WIKI Page
 At this point, we have the minimal components all up and running.
@@ -312,20 +325,39 @@ WARN -- Synapse::ServiceWatcher::ZookeeperWatcher: synapse: no backends for serv
 ```
 
 #### Zookeeper
-Nothing new to see here
+The nerve will have deregistered the service:
+```
+[zk: 127.0.0.1:2181(CONNECTED) 16] ls /nerve/services/simple_http_service/services
+[]
+```
 
 #### Recovery
-spin up the service again and Nerve will say happily it is now healthy and up after three successful health checks. Synapse again discovers backends and reconfigures the HAProxy config. The service terminal window will keep getting a 200.
+spin up the service again and Nerve will say happily it is now healthy and up after three successful health checks. Synapse again discovers backends and reconfigures the HAProxy config. The service terminal window will keep getting a 200. Checking zookeeper1's cli paths will list nerve again.
 
-## Zookeeper Crashed - TODO - how do we crash it?
+## Zookeeper Crashed
 Stop ZooKeeper with:
 ```
-sudo /usr/share/zookeeper/bin/zkServer.sh stop
+sudo service zookeeper stop
 ```
 
-## Synapse Crashed - TODO
-None of the terminal windows display anything, BUT if synapse is down - can
-service_a_node_1 still make calls to other services?
+#### Synapse
+Synapse is the only thing that responds to zookeeper1 crashing. It also crashes with a message saying that the watcher is unable to ping:
+```
+/home/vagrant/.rvm/gems/ruby-2.3.1/gems/synapse-0.13.5/lib/synapse.rb:54:in `block (2 levels) in run': synapse: service watcher simple_http_service failed ping! (RuntimeError)
+```
+
+#### Recovery
+Starting Zookeeper1 alone does NOT bring synapse back up. You will need to spin up synapse as well on service_a_node_1. Once that is done, all will be happily working again.
+
+NOTE:
+While zookeeper on zookeeper1 and synapse on service_a_node_1 are down, the actual service on service_a_node_1 would STILL be able to make external calls to other services using the last known HAProxy configuration. However, because the configuration wouldn't be updating, we might potentially be making a call to a service that is no longer alive and we would also not be aware of any new services.
+
+
+## Synapse Crashed
+None of the terminal windows display anything, BUT if synapse is down the service host will not have an HAProxy configuration with newest services in it nor will it have deregistered services that are no longer healthy/alive.
+
+#### Zookeeper
+Zookeeper still has the nerve path with the service registered :)
 
 #### Recovery
 Bringing Synapse back up shows that it reconfigures and joins our ecosystem.
@@ -333,8 +365,17 @@ Just as before, Synapse tells us it has started the zookeeper watcher and that
 it found one backend for our service.
 
 ## Nerve Crashed
+Make sure your nerve is running:
+```
+ps aux | grep nerve
+```
+Kill it:
+```
+kill -9 {process_id}
+```
 
 #### Nerve
+When doing a shutdown (not a crash)
 It tells us that
 
     * Nerve - reaping all watchers
@@ -348,7 +389,10 @@ Synapse uses the last known backend and understands it's not getting a report fr
 Synapse::ServiceWatcher::ZookeeperWatcher: synapse: no backends for service simple_http_service and no default servers for service simple_http_service; using previous backends: [{"name"=>"service_a_node_1", "host"=>"192.168.11.102", "port"=>8000, "id"=>2, "weight"=>nil, "haproxy_server_options"=>nil, "labels"=>nil}]
 ```
 #### Zookeeper
-Nothing interesting here
+If the nerve ends nicely, it deregisters the path in Zookeeper. If it REALLY crashes, it won't have a chance to deregister. This is not too big of a deal because the registry in zookeeper has a ttl, so it'll be auto removed after not being updated for a time. This takes a few seconds.
+
+NOTE:
+When HAProxy tries to connect to a node that is now down, it will not be able to reach it so we will get a timeour.
 
 #### The Service
 Still running happily, but with 200 health checks halted.
@@ -356,6 +400,52 @@ With Nerve down, nothing is requesting the health check from our service.
 
 #### Recovery
 Nerve comes up, let's us know the initial healtch check returned true, and starts reporting that our service is healthy as it keeps pinging it. The service now starts spitting 200s back on the screen and Synapse rediscovered our sole backend and updated the HAProxy config.
+
+
+
+# Step 5 - Clustering Zookeeper
+
+## Config
+You need to change the config to point all three zookeepers to the hosts.
+```
+sudo nano /etc/zookeeper/conf/zoo.cfg
+```
+
+Uncomment each of the three lines so you get:
+```
+# specify all zookeeper servers
+# The fist port is used by followers to connect to the leader
+# The second one is used for leader election
+server.1=zookeeper1:2888:3888
+server.2=zookeeper2:2888:3888
+server.3=zookeeper3:2888:3888
+```
+Also be sure to change myid file to each instance's id. So in
+zookeeper1:
+```
+sudo nano /etc/zookeeper/conf/myid
+```
+and replace all contents of file to hold only 1, like so:
+```
+1
+```
+
+
+Bring up the zookeeper services and you can check the status now by providing the hostname instead of the IP
+```
+/usr/share/zookeeper/bin/zkCli.sh -server zookeeper1
+```
+
+
+## ZooKeeper1 crashed, others are still up
+Nerve and Synapse will keep talking to the other two and updating the other two.
+When Zookeeper1 comes back up online, its registry gets refreshed from other zookeepers. If you have any doubts of this, you can point a Nerve's configuration to only one zookeeper and then kill the zookeeper it does NOT point to. If you bring it back up, its registry will have been repopulated even though a Nerve is not directly talking to it.
+
+What's cool? Since zookeeper starts as a service, doing a
+kill -9 on it to crash it not so gracefully, it will actually try to restart itself because of the upstart config.
+
+
+
 
 
 # Step I - install Zookeeper
