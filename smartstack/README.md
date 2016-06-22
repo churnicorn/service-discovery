@@ -109,6 +109,11 @@ sudo apt-get install haproxy
 ## Zookeeper
 Next, bring zookeeper up ONLY on the zookeeper1 machine. We will do this as well with the other machines later, but for now let's just work with one machine.
 ```
+sudo /usr/share/zookeeper/bin/zkServer.sh start
+```
+
+Use the zookeeper cli to look inside of zookeeper:
+```
 /usr/share/zookeeper/bin/zkCli.sh -server 127.0.0.1:2181
 ```
 
@@ -256,7 +261,8 @@ python -m SimpleHTTPServer 8000
 
 
 ### Status Check - Again
-A lot of things all of a sudden startd working. Here's what should have happened in each of the 4 terminal windows:
+A lot of things all of a sudden startd working.
+We now have a zookeeper with a service host that is running synapse, a nerve, and a service. Here's what should have happened in each of the 4 terminal windows:
 
 ##### The Service
 You'll see successful gets for health in the service terminal window.
@@ -284,6 +290,72 @@ We then see
         - ` discovered 1 backends for service simple_http_service `
         - After discovery, it configures HAProxy again
 
+
+# Step 4 - Debugging - TODO - move to WIKI Page
+At this point, we have the minimal components all up and running.
+
+## Service Crashed
+Just stop the service with 'ctrl + c'
+
+#### Service
+Well.. it's down. Nothing to see here. You'll be back at the /tmp folder.
+
+#### Nerve
+If the service crashes, 'Nerve' will let us know it received an error from our service. We configured the nerve to see our service as unhealthy after 3 errors, so after it tells us it's getting the errors 3 times, we will get a connection failure message every 2 seconds or so.
+
+#### Synapse
+Interestingly, Synapse reports with a warning that there are no backends for our service now and it'll just use the last known backend.
+TODO - does this mean that if service_b_node_1 tried to ping servoce
+, it will still think it is healthy?
+```
+WARN -- Synapse::ServiceWatcher::ZookeeperWatcher: synapse: no backends for service simple_http_service and no default servers for service simple_http_service; using previous backends: [{"name"=>"service_a_node_1", "host"=>"192.168.11.102", "port"=>8000, "id"=>1, "weight"=>nil, "haproxy_server_options"=>nil, "labels"=>nil}]
+```
+
+#### Zookeeper
+Nothing new to see here
+
+#### Recovery
+spin up the service again and Nerve will say happily it is now healthy and up after three successful health checks. Synapse again discovers backends and reconfigures the HAProxy config. The service terminal window will keep getting a 200.
+
+## Zookeeper Crashed - TODO - how do we crash it?
+Stop ZooKeeper with:
+```
+sudo /usr/share/zookeeper/bin/zkServer.sh stop
+```
+
+## Synapse Crashed - TODO
+None of the terminal windows display anything, BUT if synapse is down - can
+service_a_node_1 still make calls to other services?
+
+#### Recovery
+Bringing Synapse back up shows that it reconfigures and joins our ecosystem.
+Just as before, Synapse tells us it has started the zookeeper watcher and that
+it found one backend for our service.
+
+## Nerve Crashed
+
+#### Nerve
+It tells us that
+
+    * Nerve - reaping all watchers
+    * ServiceWatcher - it's ending service watch simple_http_service
+    * Reporter:Zookeeper - it's removing zk node at /nerve/services/simple_http_service/services/service_a_node_1_0000000002
+    * Reporter:Zookeeper - it's closing the connection
+
+#### Synapse
+Synapse uses the last known backend and understands it's not getting a report from Nerve anymore. The same thign happened when Nerve was up but the service crashed.
+```
+Synapse::ServiceWatcher::ZookeeperWatcher: synapse: no backends for service simple_http_service and no default servers for service simple_http_service; using previous backends: [{"name"=>"service_a_node_1", "host"=>"192.168.11.102", "port"=>8000, "id"=>2, "weight"=>nil, "haproxy_server_options"=>nil, "labels"=>nil}]
+```
+#### Zookeeper
+Nothing interesting here
+
+#### The Service
+Still running happily, but with 200 health checks halted.
+With Nerve down, nothing is requesting the health check from our service.
+
+#### Recovery
+Nerve comes up, let's us know the initial healtch check returned true, and starts reporting that our service is healthy as it keeps pinging it. The service now starts spitting 200s back on the screen and Synapse rediscovered our sole backend and updated the HAProxy config.
 
 
 # Step I - install Zookeeper
