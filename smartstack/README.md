@@ -446,7 +446,9 @@ kill -9 on it to crash it not so gracefully, it will actually try to restart its
 
 
 
-
+## Step 6 - Running many services within a clustered zookeeper ecosystem
+When you bring up service_a_node_2 and service_b_node_1, be sure that the nerve and synapse configurations reflect the names of the actual vm host names.
+Also make sure the zookeepers these point to are all of what is running in the cluster.
 
 # Step I - install Zookeeper
     * sudo apt-get update
