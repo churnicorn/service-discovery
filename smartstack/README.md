@@ -83,7 +83,7 @@ Download the rvm:
 curl -sSL https://get.rvm.io | bash
 ```
 
-Source and isntall the rvm:
+Source and install the rvm:
 ```
 source /home/vagrant/.rvm/scripts/rvm
 rvm install 2.3
@@ -169,8 +169,8 @@ Each machine is responsible for:
         * and utilizing HAProxy to load balance to the appropriate service
 
 
-
 Do the next few steps ONLY on service_a_node_1
+
 ### Synapse
 Synapse depends on a single config file in JSON format; it's usually called synapse.conf.json. The file has three main sections.
 
@@ -197,7 +197,9 @@ and run nerve:
 ```
 nerve -c /etc/nerve.conf.json
 ```
-This will again take up this terminal window with the output of nerve
+This will again take up this terminal window with the output of nerve.
+It will tell you that it's up and running and then it will proceed to complain
+that it can't connect to zookeeper. That's okay. Leave it as is.
 
 
 ### Status Check In
@@ -212,6 +214,16 @@ The next step is to get HAProxy and a simple HTTP Service on service_a_node_1
 
 ### HAProxy
 
+#### Extras/ Debugging
+If you ever need to check the configuration:
+```
+cat /etc/default/haproxy
+```
+If you need to relaod HAProxy:
+```
+service haproxy reload
+```
+
 ### Simple Service
 Python allows you to do something super quick to get a service up and running.
 Let's get into the tmp folder so we don't pollute our machine root dir too much:
@@ -224,6 +236,11 @@ Then, if you spin up a service, you should see failures:
 python -m SimpleHTTPServer 8000
 ```
 The failures are there because the nerve is configured to do a health check.
+They look like this:
+```
+192.168.11.102 - - [22/Jun/2016 09:10:42] code 404, message File not found
+192.168.11.102 - - [22/Jun/2016 09:10:42] "GET /health HTTP/1.1" 404 -
+```
 If you open up the nerve config again, you will see under 'checks' it is
 attempting to serve a 'uri' under '/health'.
 Our service currently knows nothing about health, so we can qucikly hack
@@ -236,6 +253,37 @@ Start up the service again and you should now see it reporting that it is health
 ```
 python -m SimpleHTTPServer 8000
 ```
+
+
+### Status Check - Again
+A lot of things all of a sudden startd working. Here's what should have happened in each of the 4 terminal windows:
+
+##### The Service
+You'll see successful gets for health in the service terminal window.
+
+##### Nerve
+Back, in the 'Nerve' terminal window, you will see an update. It stops complaining and let's us know the servic eis actually up:
+```
+[2016-06-22T09:11:14.175835 #32025]  INFO -- Nerve::ServiceCheck::HttpServiceCheck: nerve: service check http-192.168.11.102:8000/health transitions to up after 3 successes
+I, [2016-06-22T09:11:14.198057 #32025]  INFO -- Nerve::ServiceWatcher: nerve: service simple_http_service is now up
+```
+
+##### Synapse
+Synapse shows that it's starting. ZooKeeper watcher is starting on
+'''
+simple_http_service @ hosts: 192.168.11.101:2181, path: /nerve/services/simple_http_service/services
+'''
+We then see
+
+    * the Zookeeper Watcher connects to the service
+    * it creates a pool connection
+    * it tells us a successful connection was then made
+    * lets us know it's discovering backends for simple_http_service
+    * Synapse configures HAProxy
+    * We keep trying to discover backends and at some point one (our lone service) is discoevred:
+        - ` discovered 1 backends for service simple_http_service `
+        - After discovery, it configures HAProxy again
+
 
 
 # Step I - install Zookeeper
