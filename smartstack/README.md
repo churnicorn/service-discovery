@@ -1,4 +1,6 @@
-README.md
+# Purpose
+We found many pieces of documentation out there, but nothing that gives a full setup of a sandbox with instructions on getting each piece working, what to expect, and how to break things. This demo attempts to help you learn how SmartStack works with a handson tutorial - you should be done within a couple of hours!
+We will, with the walkthrough, do some demos and expected results when each piece of the infrastructure breaks on us.
 
 # Introduction
 
@@ -6,6 +8,7 @@ This project stands up vm machines to act as each of he necessary components of 
 More information on smartstack can be found here
 * https://github.com/airbnb/smartstack-cookbook/blob/master/README.md
 * https://github.com/airbnb/synapse
+* https://github.com/airbnb/nerve
 * http://jasonwilder.com/blog/2014/02/04/service-discovery-in-the-cloud/
 
 # Step 1 - Bring up the VM machines
