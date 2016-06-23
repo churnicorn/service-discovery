@@ -453,26 +453,5 @@ kill -9 on it to crash it not so gracefully, it will actually try to restart its
 When you bring up service_a_node_2 and service_b_node_1, be sure that the nerve and synapse configurations reflect the names of the actual vm host names.
 Also make sure the zookeepers these point to are all of what is running in the cluster.
 
-# Step I - install Zookeeper
-    * sudo apt-get update
-    * sudo apt-get install zookeeper --> NOT needed
-    * sudo apt-get install zookeeperd
-    * telnet localhost 2181 --> type "ruok" + Enter to test installation
-    * /usr/share/zookeeper/bin/zkCli.sh -server 127.0.0.1:2181  --> CLI
 
-# Step II - install Nerve
-    * mkdir -p /opt/smartstack/nerve -> SKIP
-     curl -sSL https://get.rvm.io | bash
-     source /home/vagrant/.rvm/scripts/rvm
-     rvm install 2.3
-     gem install nerve
-    * create config file at /etc/nerve.conf.json
-    * nerve -c /etc/nerve.conf.json > /var/log/nerve 2>&1 &
-
-# Step III - install Synapse
-    * Install RVM because Ruby sucks
-    * curl -sSL https://get.rvm.io | bash
-    * source /home/vagrant/.rvm/scripts/rvm
-    * rvm install 2.3
-    * gem install synapse
-    * sudo apt-get install haproxy
+# Step 7 - Running Synapse and Nerve as a Service - TODO
