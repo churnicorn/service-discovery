@@ -307,7 +307,7 @@ Furthermore, if you iterate through the Nerve directory, you will find the servi
 [service_a_node_1_0000000000]
 ```
 
-# Step 4 - Debugging - TODO - move to WIKI Page
+# Step 4 - Debugging
 At this point, we have the minimal components all up and running.
 
 ## Service Crashed
